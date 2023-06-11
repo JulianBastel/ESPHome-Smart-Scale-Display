@@ -19,7 +19,7 @@
 
 * Any standard scale of choice
 * An HX711 ADC converter
-* An ESP8266, ESP32 or similar board
+* An ESP32 or similar board
   * A power supply (preferrably USB)
 
 ## Flashing the firmware
