@@ -11,6 +11,8 @@
 
 * [x] Based on [ESPHome][esphome]
 * [x] Realtime transmission to Home Assistant
+* [x] Weight in Display on Scale
+* [x] ESPHome Bluetooth Proxies   
 * [x] On-device mapping of raw sensor values to Kg scale (or whatever unit you want to use instead)
 * [x] Automatically accounts for sensor shifts due to temperature changes
 * [x] Instant tare with a click of a button
@@ -32,9 +34,11 @@
 ## Wiring
 
 Connect the load cells to the HX711, and the ESP board to the HX711 as shown:
+Look at [Building a bed occupancy sensor for Home Assistant](https://everythingsmarthome.co.uk/building-a-bed-occupancy-sensor-for-home-assistant/)
 
-![Wiring diagram for a 4x50kg load cell configuration](https://circuitjournal.com/img/articles/10_50kg_load_cell/HX711_4x50kg_load_cell_diagram.jpg?v=10)
-Credit: https://circuitjournal.com/img/articles/10_50kg_load_cell/HX711_4x50kg_load_cell_diagram.jpg
+Connect OLED SPI Display:
+Look at https://blog.squix.org/2015/12/esp8266-weather-station-measuring-2.html
+
 
 ## Connect to Home Assistant
 
