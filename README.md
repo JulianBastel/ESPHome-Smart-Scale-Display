@@ -25,7 +25,7 @@
 ## Flashing the firmware
 
 * Create a new ESPHome configuration YAML file
-* Copy the contents of [esphome_hx711_smart_scale.yaml](esphome_hx711_smart_scale.yaml) into it
+* Copy the contents of [esphome_esp32_hx711_oled_spi_display.yaml](esphome_esp32_hx711_oled_spi_display.yaml) into it
 * Customize the basic device cnfiguration (Board, WiFi, etc.) to your liking
 * Flash it onto your ESP based board
 
