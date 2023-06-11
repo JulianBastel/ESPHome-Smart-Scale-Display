@@ -1,0 +1,194 @@
+substitutions:
+  name: smart-bathroom-scale
+  friendly_name: Smart Bathroom Scale
+packages:
+  esphome.bluetooth-proxy: github://esphome/bluetooth-proxies/esp32-generic.yaml@main
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+
+
+
+globals:
+  - id: initial_zero
+    type: float
+    restore_value: yes
+    # NOTE: make sure to align this value to the one used in "calibrate_linear" below!
+    initial_value: '458889'
+    
+  - id: auto_tare_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'true'
+
+  - id: auto_tare_difference
+    type: float
+    restore_value: yes
+    initial_value: '0'
+
+
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "add key"
+
+ota:
+  password: "add password"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Smart-Bathroom-Scale"
+    password: "cUpH0o9sVxwO"
+    
+
+# Define I2C connction 
+# used by Disaply
+i2c:
+  sda: 21
+  scl: 22
+  scan: true
+
+
+
+button:
+
+  ## Button used to initiate a manual tare
+  - platform: template
+    id: smart_bathroom_scale_manual_tare_action_switch
+    name: "Smart Scale Manual Tare Action"
+    icon: mdi:scale-balance
+    on_press:
+      - lambda: |-
+          id(auto_tare_difference) = id(initial_zero) - id(smart_bathroom_scale_hx711_value_raw).state;
+switch:
+  ## Switch to enable/disable the auto tare feature
+  - platform: template
+    id: smart_bathroom_scale_continuous_tare_enabled
+    name: "Smart Scale Continuous Tare Enabled"
+    lambda: |-
+      return id(auto_tare_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(auto_tare_enabled) = true;
+    turn_off_action:
+      - lambda: |-
+          id(auto_tare_enabled) = false;
+
+
+
+
+
+## Sensor Configuration ##
+sensor:
+  - platform: hx711
+    id: smart_bathroom_scale_hx711_value_raw
+    internal: false
+    #dout_pin: 27
+    dout_pin: GPIO16
+    clk_pin: GPIO18
+    #clk_pin: GPIO3
+    # clk_pin: 26
+    gain: 128
+    #update_interval: 0.2s 
+    update_interval: 0.2s 
+    filters:
+      - quantile:
+          window_size: 10
+          send_every: 1
+          send_first_at: 1
+          quantile: .9
+    on_value:
+      then:
+        - sensor.template.publish:
+            id: smart_bathroom_scale_hx711_value
+            state: !lambda 'return id(smart_bathroom_scale_hx711_value_raw).state;'
+        - if:
+            condition:
+              and:
+                - lambda: 'return id(auto_tare_enabled);'
+                # current smart scale value is below approx. 10KG (raw value -275743) aka nobody is standing on the scale
+                - lambda: 'return id(smart_bathroom_scale_hx711_value).state < 10.0;'
+            then:
+              - if:
+                  condition:
+                    # current raw scale value is below expected zero value
+                    - lambda: 'return id(smart_bathroom_scale_hx711_value_raw).state < (id(initial_zero) - id(auto_tare_difference));'
+                  then:
+                    # INcrease Auto-Tare offset to slowly align real zero value with expected zero value
+                    - lambda: |-
+                        id(auto_tare_difference) += 10;
+                  else:
+                    # DEcrease Auto-Tare offset to slowly align real zero value with expected zero value
+                    - lambda: |-
+                        id(auto_tare_difference) -= 10;
+    
+  # Mapped value to KG
+  - platform: template
+    id: smart_bathroom_scale_hx711_value
+    name: "Smart Scale HX711 Value"
+    internal: False
+    filters:
+      # apply auto_tare difference
+      - lambda: 'return x + id(auto_tare_difference);'
+      # apply rough calibration
+      - calibrate_linear:
+          # retrieve these values by evaluating the raw values with loads of known mass.
+          # note that a bigger difference between measurements usually results in higher resolution,
+          # so measure 0 Kg and the highest known mass you have (like f.ex. your own weight, measured by a normal scale with good accuracy)
+          - 458889 -> 0
+          - 890158 -> 21.3
+      # map values below 0.1 to 0 (to decrease value changes due to random fluctuation)
+      - lambda: |-
+          if (x <= 0.1) {
+            return 0.0;
+          } else {
+            return x;
+          }
+          
+    unit_of_measurement: kg
+    accuracy_decimals: 2
+    # the sensor will automatically update through the 'sensor.template.publish' call
+    update_interval: never    
+
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+          // 
+          it.printf(64, 0, id(font1), TextAlign::TOP_CENTER, "Text and Text");
+
+          // Print KG 
+          if (10 > id(smart_bathroom_scale_hx711_value).state) 
+          {
+             it.printf(0, 60, id(font2), TextAlign::BASELINE_LEFT,  "KG: 0%.1f", id(smart_bathroom_scale_hx711_value).state);
+          }
+          else
+          {
+             it.printf(0, 60, id(font2), TextAlign::BASELINE_LEFT,  "KG: %.1f", id(smart_bathroom_scale_hx711_value).state);
+          }
+
+
+
+font:
+  - file: "ComicSansMS3.ttf"
+    id: my_font
+    size: 20
+
+  - file: 'slkscr.ttf'
+    id: font1
+    size: 8
+
+  - file: 'FontsFree-Net-BebasNeue-Regular.ttf'
+    id: font2
+    size: 48
